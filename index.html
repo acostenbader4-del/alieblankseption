@@ -507,14 +507,9 @@ input[type="text"]::placeholder { color: #555; }
 
 </main>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import {
-  getDatabase, ref, set, get, onValue, update
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-import {
-  getStorage, ref as sRef, uploadBytes, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
 
 // ── Firebase ──────────────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -526,9 +521,15 @@ const firebaseConfig = {
   messagingSenderId: "749940108441",
   appId: "1:749940108441:web:4413c3879dd43e0e231c08"
 };
-const app     = initializeApp(firebaseConfig);
-const db      = getDatabase(app);
-const storage = getStorage(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// shorthand helpers
+function dbRef(path)          { return db.ref(path); }
+function dbSet(path, val)     { return db.ref(path).set(val); }
+function dbUpdate(path, val)  { return db.ref(path).update(val); }
+function dbGet(path)          { return db.ref(path).get(); }
+function dbOn(path, cb)       { db.ref(path).on("value", cb); }
 
 // ── Connection banner ─────────────────────────────────────────────────────────
 const fbBanner = document.getElementById("fbBanner");
@@ -544,7 +545,7 @@ function setBanner(state, msg) {
   }
 }
 
-onValue(ref(db, ".info/connected"), snap => {
+dbOn(".info/connected", snap => {
   if (snap.val() === true) {
     setBanner("ok", "✓ Connected to Firebase");
   } else {
@@ -671,11 +672,11 @@ window.createRoom = async function() {
   if (!roomCode)   return alert("Enter a room code!");
   isHost = true;
 
-  await set(ref(db, "rooms/" + roomCode), {
+  await dbSet("rooms/" + roomCode, {
     phase: "lobby", roundIndex: 0, revealed: false,
     hostId: playerId, answers: {}
   });
-  await set(ref(db, `rooms/${roomCode}/players/${playerId}`), {
+  await dbSet(`rooms/${roomCode}/players/${playerId}`, {
     name: playerName + " 👑", score: 0
   });
 
@@ -683,7 +684,6 @@ window.createRoom = async function() {
   showScreen("hostLobbyScreen");
   S("qrRoom").textContent = roomCode;
 
-  // Build QR pointing to this page with ?room=CODE
   S("qrCode").innerHTML = "";
   const joinUrl = `${location.origin}${location.pathname}?room=${roomCode}`;
   new QRCode(S("qrCode"), {
@@ -702,12 +702,12 @@ window.joinAsPlayer = async function() {
   if (!playerName) return alert("Enter your name!");
   if (!roomCode)   return alert("Enter the room code!");
 
-  const snap = await get(ref(db, "rooms/" + roomCode));
+  const snap = await dbGet("rooms/" + roomCode);
   if (!snap.exists())              return alert("Room not found! Double-check the code.");
   if (snap.val().phase === "game") return alert("Game already in progress — too late to join this round!");
 
   isHost = false;
-  await set(ref(db, `rooms/${roomCode}/players/${playerId}`), { name: playerName, score: 0 });
+  await dbSet(`rooms/${roomCode}/players/${playerId}`, { name: playerName, score: 0 });
 
   setHeader(roomCode, "player");
   S("playerRoomDisplay").textContent = roomCode;
@@ -717,19 +717,17 @@ window.joinAsPlayer = async function() {
 
 // ── Lobby listener (both roles) ───────────────────────────────────────────────
 function listenLobby() {
-  onValue(ref(db, "rooms/" + roomCode), snap => {
+  dbOn("rooms/" + roomCode, snap => {
     if (!snap.exists()) return;
     const data = snap.val();
     const players = Object.entries(data.players || {});
     const nonHost = players.filter(([id]) => id !== data.hostId);
 
-    // Chips for host lobby (exclude host chip from count hint)
     S("hostLobbyChips").innerHTML = players.map(([id, p]) =>
       `<div class="chip${id === playerId ? " you" : ""}">${p.name}</div>`
     ).join("");
     S("noPlayersHint").classList.toggle("hidden", nonHost.length > 0);
 
-    // Chips for player lobby
     S("playerLobbyChips").innerHTML = players.map(([id, p]) =>
       `<div class="chip${id === playerId ? " player-you" : ""}">${p.name}</div>`
     ).join("");
@@ -745,14 +743,14 @@ function listenLobby() {
 
 // ── Start game ────────────────────────────────────────────────────────────────
 window.startGame = async function() {
-  await update(ref(db, "rooms/" + roomCode), {
+  await dbUpdate("rooms/" + roomCode, {
     phase: "game", roundIndex: 0, revealed: false, answers: {}
   });
 };
 
 // ── Game listener ─────────────────────────────────────────────────────────────
 function listenGame() {
-  onValue(ref(db, "rooms/" + roomCode), snap => {
+  dbOn("rooms/" + roomCode, snap => {
     if (!snap.exists()) return;
     const data = snap.val();
     if (data.phase !== "game") return;
@@ -766,9 +764,10 @@ function listenGame() {
     S("roundLabel").textContent = `Round ${ri + 1} / ${QUESTIONS.length}`;
     S("progressFill").style.width = `${((ri + 1) / QUESTIONS.length) * 100}%`;
 
-    // Image
-    if (data.questionImages?.[ri]) {
-      S("qImg").src = data.questionImages[ri];
+    // Image — stored as base64 directly in room data
+    const imgSrc = data.questionImages && data.questionImages[ri] ? data.questionImages[ri] : null;
+    if (imgSrc) {
+      S("qImg").src = imgSrc;
       S("qImgWrap").classList.remove("hidden");
     } else {
       S("qImgWrap").classList.add("hidden");
@@ -789,13 +788,10 @@ function listenGame() {
       b.className = "opt";
       b.textContent = opt;
       if (isHost) {
-        // Host always sees options locked — correct answer highlighted after reveal,
-        // subtly marked before reveal so they know but players don't
         b.classList.add("locked");
         if (data.revealed) {
           if (i === q.correct) b.classList.add("correct");
         } else {
-          // Pre-reveal: correct answer gets a faint gold ring so host knows
           if (i === q.correct) b.style.cssText = "border-color:#ffb3d155;opacity:0.7;";
         }
       } else if (!data.revealed) {
@@ -812,23 +808,17 @@ function listenGame() {
     // Status
     const total    = Object.keys(data.players || {}).length;
     const answered = Object.keys(data.answers || {}).length;
-    if (isHost) {
-      S("statusBar").innerHTML = !data.revealed
-        ? `<span class="pulse-dot"></span>${answered} of ${total} players answered`
-        : ``;
-    } else {
-      S("statusBar").innerHTML = !data.revealed
-        ? `<span class="pulse-dot"></span>${answered} of ${total} answered`
-        : "";
-    }
+    S("statusBar").innerHTML = !data.revealed
+      ? `<span class="pulse-dot"></span>${answered} of ${total} ${isHost ? "players" : ""} answered`
+      : "";
 
     // Host panel
     if (isHost) {
       S("hostPanel").classList.remove("hidden");
       S("revealBtn").style.display = data.revealed ? "none" : "";
       S("nextBtn").classList.toggle("hidden", !data.revealed);
-      if (data.questionImages?.[ri]) {
-        S("uploadPreview").innerHTML = `<img src="${data.questionImages[ri]}">`;
+      if (imgSrc) {
+        S("uploadPreview").innerHTML = `<img src="${imgSrc}">`;
         S("uploadStatus").textContent = "✅ Image saved for this question.";
       } else {
         S("uploadPreview").innerHTML = "";
@@ -846,32 +836,30 @@ function listenGame() {
 async function submitAnswer(choice) {
   if (hasRevealed) return;
   myAnswer = choice;
-  await set(ref(db, `rooms/${roomCode}/answers/${playerId}`), choice);
+  await dbSet(`rooms/${roomCode}/answers/${playerId}`, choice);
 }
 
 // ── Reveal ────────────────────────────────────────────────────────────────────
 window.reveal = async function() {
-  const roomRef = ref(db, "rooms/" + roomCode);
-  const snap    = await get(roomRef);
-  const data    = snap.val();
-  const q       = QUESTIONS[data.roundIndex ?? 0];
+  const snap = await dbGet("rooms/" + roomCode);
+  const data = snap.val();
+  const q    = QUESTIONS[data.roundIndex ?? 0];
   const updates = { revealed: true };
   for (const [id, ans] of Object.entries(data.answers || {})) {
     if (ans === q.correct) {
       updates[`players/${id}/score`] = (data.players?.[id]?.score ?? 0) + 1;
     }
   }
-  await update(roomRef, updates);
+  await dbUpdate("rooms/" + roomCode, updates);
 };
 
 // ── Next round ────────────────────────────────────────────────────────────────
 window.nextRound = async function() {
-  const roomRef = ref(db, "rooms/" + roomCode);
-  const snap    = await get(roomRef);
+  const snap = await dbGet("rooms/" + roomCode);
   let i = (snap.val().roundIndex ?? 0) + 1;
   if (i >= QUESTIONS.length) i = 0;
   myAnswer = null;
-  await update(roomRef, { roundIndex: i, revealed: false, answers: {} });
+  await dbUpdate("rooms/" + roomCode, { roundIndex: i, revealed: false, answers: {} });
 };
 
 // ── Scores ────────────────────────────────────────────────────────────────────
@@ -910,16 +898,31 @@ window.handleFileSelect = e => { const f = e.target.files[0]; if (f) uploadImage
 async function uploadImage(file) {
   S("uploadStatus").textContent = "⏳ Uploading…";
   S("uploadPreview").innerHTML  = "";
+
+  // Check file size — warn if over 1MB (base64 inflates ~33%)
+  if (file.size > 1.5 * 1024 * 1024) {
+    S("uploadStatus").textContent = "❌ Image too large — please use a file under 1.5MB.";
+    return;
+  }
+
   try {
-    const fileRef = sRef(storage, `question-images/q${currentRi}`);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
-    await update(ref(db, `rooms/${roomCode}`), { [`questionImages/${currentRi}`]: url });
-    S("uploadPreview").innerHTML = `<img src="${url}">`;
+    // Convert to base64 and store directly in Realtime DB — no Storage rules needed
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result); // data:image/... base64 string
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    // Save base64 into room (persistent across sessions since it's keyed by question index)
+    await dbSet(`questionImages/${currentRi}`, base64);
+    await dbUpdate(`rooms/${roomCode}`, { [`questionImages/${currentRi}`]: base64 });
+
+    S("uploadPreview").innerHTML = `<img src="${base64}">`;
     S("uploadStatus").textContent = "✅ Saved permanently for this question!";
   } catch(err) {
-    console.error(err);
-    S("uploadStatus").textContent = "❌ Upload failed — check Firebase Storage rules.";
+    console.error("Upload error:", err);
+    S("uploadStatus").textContent = `❌ Failed: ${err.message || err.code || "unknown error"}`;
   }
 }
 
