@@ -475,6 +475,7 @@ input[type="text"]::placeholder { color: #555; }
       <div class="host-btns">
         <button class="btn btn-accent btn-sm" id="revealBtn" onclick="reveal()">🎉 Reveal Answer</button>
         <button class="btn btn-ghost btn-sm hidden" id="nextBtn" onclick="nextRound()">Next Round →</button>
+        <button class="btn btn-sm" id="endBtn" onclick="endGame()" style="background:#2a0a0a;color:#f87171;border:1px solid #4a1515;width:auto;padding:9px 18px;font-size:14px;font-weight:700;border-radius:10px;cursor:pointer;">✕ End Game</button>
       </div>
       <!-- Image upload -->
       <div class="upload-zone" id="uploadZone">
@@ -505,7 +506,19 @@ input[type="text"]::placeholder { color: #555; }
     </div>
   </div>
 
-</main>
+  <!-- ⑦ END SCREEN -->
+  <div id="endScreen" style="display:none">
+    <div class="card" style="text-align:center;align-items:center;gap:20px">
+      <div style="font-size:3rem">🎉</div>
+      <h2 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:2px">Game Over!</h2>
+      <p style="color:var(--muted)">Thanks for playing Alie's Blankseption 💕</p>
+      <div style="width:100%">
+        <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Final Scores</div>
+        <div id="finalScores"></div>
+      </div>
+      <button class="btn btn-accent" onclick="location.reload()" style="margin-top:8px">Play Again →</button>
+    </div>
+  </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -633,9 +646,8 @@ let gameWatching = false;
 const S = id => document.getElementById(id);
 const ALL_SCREENS = [
   "landingScreen","hostSetupScreen","playerJoinScreen",
-  "hostLobbyScreen","playerLobbyScreen","gameScreen"
+  "hostLobbyScreen","playerLobbyScreen","gameScreen","endScreen"
 ];
-// Map each screen to its correct display type
 const SCREEN_DISPLAY = {
   landingScreen:    "flex",
   hostSetupScreen:  "block",
@@ -643,6 +655,7 @@ const SCREEN_DISPLAY = {
   hostLobbyScreen:  "block",
   playerLobbyScreen:"block",
   gameScreen:       "block",
+  endScreen:        "block",
 };
 function showScreen(id) {
   ALL_SCREENS.forEach(s => {
@@ -732,6 +745,11 @@ function listenLobby() {
       `<div class="chip${id === playerId ? " player-you" : ""}">${p.name}</div>`
     ).join("");
 
+    if (data.phase === "ended") {
+      showEndScreen(data.players || {});
+      return;
+    }
+
     if (data.phase === "game" && !gameWatching) {
       gameWatching = true;
       myAnswer = null;
@@ -743,8 +761,12 @@ function listenLobby() {
 
 // ── Start game ────────────────────────────────────────────────────────────────
 window.startGame = async function() {
+  // Load all previously saved images and bake them into the room
+  const imgSnap = await dbGet("questionImages");
+  const savedImages = imgSnap.val() || {};
   await dbUpdate("rooms/" + roomCode, {
-    phase: "game", roundIndex: 0, revealed: false, answers: {}
+    phase: "game", roundIndex: 0, revealed: false, answers: {},
+    questionImages: savedImages
   });
 };
 
@@ -753,6 +775,13 @@ function listenGame() {
   dbOn("rooms/" + roomCode, snap => {
     if (!snap.exists()) return;
     const data = snap.val();
+
+    // Game ended — show end screen for everyone
+    if (data.phase === "ended") {
+      showEndScreen(data.players || {});
+      return;
+    }
+
     if (data.phase !== "game") return;
 
     const ri = data.roundIndex ?? 0;
@@ -764,9 +793,11 @@ function listenGame() {
     S("roundLabel").textContent = `Round ${ri + 1} / ${QUESTIONS.length}`;
     S("progressFill").style.width = `${((ri + 1) / QUESTIONS.length) * 100}%`;
 
-    // Image — stored as base64 directly in room data
+    // Image — load from persistent top-level node (survives room resets)
     const imgSrc = data.questionImages && data.questionImages[ri] ? data.questionImages[ri] : null;
-    if (imgSrc) {
+    // Image — only show to host before reveal, show to everyone after reveal
+    const showImage = data.revealed || isHost;
+    if (imgSrc && showImage) {
       S("qImg").src = imgSrc;
       S("qImgWrap").classList.remove("hidden");
     } else {
@@ -832,7 +863,27 @@ function listenGame() {
   });
 }
 
-// ── Submit ────────────────────────────────────────────────────────────────────
+// ── End game ──────────────────────────────────────────────────────────────────
+window.endGame = async function() {
+  if (!confirm("End the game for everyone?")) return;
+  const snap = await dbGet("rooms/" + roomCode);
+  const players = snap.val()?.players || {};
+  await dbUpdate("rooms/" + roomCode, { phase: "ended" });
+  showEndScreen(players);
+};
+
+function showEndScreen(players) {
+  ALL_SCREENS.forEach(s => S(s).style.display = "none");
+  S("endScreen").style.display = "block";
+  const sorted = Object.entries(players).sort((a,b) => b[1].score - a[1].score);
+  S("finalScores").innerHTML = sorted.map(([id, p], idx) => {
+    const medals = ["🥇","🥈","🥉"];
+    return `<div class="score-row">
+      <div class="score-name">${medals[idx] || "  "} ${p.name}</div>
+      <div class="score-pts">${p.score} pts</div>
+    </div>`;
+  }).join("");
+}
 async function submitAnswer(choice) {
   if (hasRevealed) return;
   myAnswer = choice;
@@ -914,8 +965,9 @@ async function uploadImage(file) {
       reader.readAsDataURL(file);
     });
 
-    // Save base64 into room (persistent across sessions since it's keyed by question index)
+    // Save base64 into persistent top-level node keyed by question index
     await dbSet(`questionImages/${currentRi}`, base64);
+    // Also write into current room so live listeners pick it up immediately
     await dbUpdate(`rooms/${roomCode}`, { [`questionImages/${currentRi}`]: base64 });
 
     S("uploadPreview").innerHTML = `<img src="${base64}">`;
