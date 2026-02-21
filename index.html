@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alie's Blankseption 💕</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root {
+  --bg: #0d0009;
+  --surface: #1a0d14;
+  --surface2: #241018;
+  --accent: #ff4d8d;
+  --accent2: #ff9ed2;
+  --text: #f9eef3;
+  --muted: #886677;
+  --correct: #2ecc71;
+  --wrong: #e74c3c;
+  --radius: 14px;
+  --host-color: #ffb3d1;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 9999; opacity: 0.5;
+}
+
+/* ── Firebase Banner ── */
+#fbBanner {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 10000;
+  padding: 11px 20px;
+  font-size: 13px; font-weight: 600;
+  text-align: center;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform 0.5s cubic-bezier(.4,0,.2,1), opacity 0.5s ease;
+}
+#fbBanner.hide { transform: translateY(-110%); opacity: 0; pointer-events: none; }
+#fbBanner.connecting { background: #222212; color: var(--accent2); border-bottom: 1px solid #3a3810; }
+#fbBanner.ok  { background: #0c2016; color: #4ade80; border-bottom: 1px solid #1a4030; }
+#fbBanner.err { background: #1e0b0b; color: #f87171; border-bottom: 1px solid #3f1515; }
+.fb-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; display: inline-block;
+  animation: blink 1.1s ease-in-out infinite;
+}
+#fbBanner.ok .fb-dot, #fbBanner.err .fb-dot { animation: none; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/* ── Header ── */
+header {
+  width: 100%; padding: 20px 28px 14px;
+  display: flex; align-items: center; gap: 12px;
+  border-bottom: 1px solid #1e1e26;
+  margin-top: 40px;
+}
+header h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  letter-spacing: 2px;
+}
+header h1 em { color: var(--accent); font-style: normal; }
+.room-badge {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase;
+  background: var(--surface2); border: 1px solid #333;
+  padding: 4px 12px; border-radius: 99px; color: var(--muted);
+}
+.role-badge {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; padding: 4px 12px;
+  border-radius: 99px; margin-left: auto;
+}
+.role-badge.host   { background: rgba(255,179,209,.15); border: 1px solid rgba(255,179,209,.35); color: var(--host-color); }
+.role-badge.player { background: rgba(255,77,141,.1);   border: 1px solid rgba(255,77,141,.3);   color: var(--accent); }
+
+main { width: 100%; max-width: 820px; padding: 28px 20px; flex: 1; }
+
+/* ── Cards ── */
+.card {
+  background: var(--surface); border: 1px solid #252530;
+  border-radius: var(--radius); padding: 36px 32px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.card h2 { font-family: 'Bebas Neue', sans-serif; font-size: 1.9rem; letter-spacing: 1px; }
+.card p  { color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+input[type="text"] {
+  width: 100%; background: var(--surface2); border: 1.5px solid #2e2e3a;
+  border-radius: 10px; padding: 13px 16px;
+  color: var(--text); font-size: 16px; font-family: 'DM Sans', sans-serif;
+  outline: none; transition: border-color 0.2s;
+}
+input[type="text"]:focus { border-color: var(--accent); }
+input[type="text"]::placeholder { color: #555; }
+
+.btn {
+  padding: 13px 24px; border-radius: 10px; border: none;
+  cursor: pointer; font-size: 15px; font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  transition: transform 0.1s, opacity 0.15s; width: 100%;
+}
+.btn:active { transform: scale(0.97); }
+.btn-accent  { background: var(--accent); color: #fff; }
+.btn-accent:hover  { opacity: .87; }
+.btn-purple  { background: var(--host-color); color: #1a0010; }
+.btn-purple:hover  { opacity: .87; }
+.btn-yellow  { background: var(--accent2); color: #111; }
+.btn-yellow:hover  { opacity: .87; }
+.btn-ghost   { background: var(--surface2); color: var(--text); border: 1.5px solid #2e2e3a; }
+.btn-ghost:hover   { background: #252530; }
+.btn-sm { padding: 9px 18px; font-size: 14px; width: auto; }
+.btn-danger { background: #3a1515; color: #f87171; border: 1px solid #5a2020; }
+.btn-danger:hover { background: #4a1a1a; }
+
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--muted); font-size: 13px; cursor: pointer;
+  margin-bottom: 16px; transition: color 0.15s;
+}
+.back-link:hover { color: var(--text); }
+
+/* ── Landing ── */
+#landingScreen {
+  display: flex; flex-direction: column; align-items: center;
+  margin-top: 40px;
+}
+.landing-hero {
+  text-align: center; margin-bottom: 40px;
+}
+.landing-hero h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.2rem, 8vw, 4rem);
+  letter-spacing: 3px; line-height: 1.05; margin-bottom: 10px;
+}
+.landing-hero h2 em { color: var(--accent); font-style: normal; }
+.landing-hero p { color: var(--muted); font-size: 15px; }
+
+.role-cards {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  width: 100%; max-width: 540px;
+}
+@media(max-width:480px) { .role-cards { grid-template-columns: 1fr; } }
+
+.role-card {
+  border-radius: var(--radius); padding: 34px 24px 28px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  cursor: pointer; text-align: center;
+  border: 2px solid transparent;
+  transition: transform 0.18s, border-color 0.18s, background 0.18s;
+}
+.role-card:hover { transform: translateY(-5px); }
+.role-card .icon { font-size: 2.8rem; }
+.role-card h3 { font-family: 'Bebas Neue', sans-serif; font-size: 1.7rem; letter-spacing: 2px; }
+.role-card p  { color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+.role-card.host-card {
+  background: rgba(255,179,209,.07); border-color: rgba(255,179,209,.2);
+}
+.role-card.host-card h3 { color: var(--host-color); }
+.role-card.host-card:hover { border-color: var(--host-color); background: rgba(255,179,209,.13); }
+
+.role-card.player-card {
+  background: rgba(255,77,141,.05); border-color: rgba(255,77,141,.18);
+}
+.role-card.player-card h3 { color: var(--accent); }
+.role-card.player-card:hover { border-color: var(--accent); background: rgba(255,77,141,.11); }
+
+/* ── Host Setup / Player Join ── */
+#hostSetupScreen, #playerJoinScreen { display: none; }
+.setup-wrap { max-width: 460px; margin: auto; }
+
+/* ── Host Lobby ── */
+#hostLobbyScreen { display: none; }
+.lobby-grid {
+  display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: start;
+}
+@media(max-width:580px) { .lobby-grid { grid-template-columns: 1fr; } }
+
+.qr-wrap {
+  background: #fff; border-radius: 14px; padding: 14px 14px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.4);
+}
+.qr-room { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 5px; color: #111; }
+.qr-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #555; }
+
+.section-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  background: var(--surface2); border: 1px solid #2e2e3a;
+  border-radius: 99px; padding: 5px 14px; font-size: 13px; font-weight: 500;
+}
+.chip.you { border-color: var(--host-color); color: var(--host-color); }
+.chip.player-you { border-color: var(--accent); color: var(--accent); }
+
+.host-lobby-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.no-players-hint { color: var(--muted); font-size: 13px; font-style: italic; }
+
+/* ── Player Lobby ── */
+#playerLobbyScreen { display: none; }
+.player-wait {
+  text-align: center; padding: 32px 0 20px;
+}
+.player-wait .big-icon { font-size: 3.2rem; margin-bottom: 14px; }
+.player-wait h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem; letter-spacing: 2px; color: var(--accent2);
+  margin-bottom: 6px;
+}
+.player-wait p { color: var(--muted); font-size: 14px; }
+.room-code-display {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem; letter-spacing: 8px; color: var(--accent);
+  text-align: center; margin: 12px 0 20px;
+}
+
+/* ── Game Screen ── */
+#gameScreen { display: none; }
+
+.round-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 18px;
+}
+.round-label { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 2px; color: var(--muted); }
+.progress-track {
+  width: 140px; height: 5px; background: var(--surface2);
+  border-radius: 99px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; background: var(--accent);
+  border-radius: 99px; transition: width 0.5s ease;
+}
+
+.q-card {
+  background: var(--surface); border: 1px solid #252530;
+  border-radius: var(--radius); padding: 26px 26px 22px;
+  margin-bottom: 18px; position: relative; overflow: hidden;
+}
+.q-card::before {
+  content: '"'; position: absolute; top: -12px; left: 12px;
+  font-size: 130px; color: var(--accent); opacity: 0.055;
+  font-family: Georgia, serif; line-height: 1; pointer-events: none;
+}
+.q-img-wrap { margin-bottom: 16px; text-align: center; }
+.q-img-wrap img {
+  max-width: 100%; max-height: 240px; border-radius: 10px;
+  object-fit: contain; border: 1px solid #252530;
+}
+.q-text {
+  font-size: clamp(1.05rem, 3vw, 1.4rem); font-weight: 500;
+  line-height: 1.65; position: relative; z-index: 1;
+}
+.blank {
+  display: inline-block; background: var(--accent);
+  color: transparent; border-radius: 6px;
+  min-width: 80px; height: 1.1em; vertical-align: middle;
+  margin: 0 4px; padding: 0 8px; font-weight: 700;
+  transition: background 0.35s, color 0.35s;
+}
+.blank.revealed { background: var(--accent2); color: #111; }
+
+.options-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-bottom: 18px;
+}
+@media(max-width:500px) { .options-grid { grid-template-columns: 1fr; } }
+.opt {
+  background: var(--surface); border: 2px solid #252530;
+  border-radius: var(--radius); padding: 14px 16px;
+  color: var(--text); font-size: 14px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif; cursor: pointer;
+  text-align: left; line-height: 1.4;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.opt:not(.locked):hover { border-color: var(--accent); transform: translateY(-2px); background: #1f1f28; }
+.opt.selected { border-color: var(--accent2); background: rgba(255,205,62,.06); }
+.opt.correct  { border-color: var(--correct); background: rgba(46,204,113,.09); color: var(--correct); }
+.opt.wrong    { border-color: var(--wrong);   background: rgba(231,76,60,.07);  color: var(--wrong); }
+.opt.locked   { cursor: default; }
+
+.status-bar {
+  text-align: center; padding: 8px; font-size: 14px; color: var(--muted);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 36px;
+}
+.pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); display: inline-block;
+  animation: blink 1.1s ease-in-out infinite;
+}
+
+/* Host panel (in-game) */
+.host-panel {
+  background: rgba(255,179,209,.05); border: 1px solid rgba(255,179,209,.18);
+  border-radius: var(--radius); padding: 20px; margin-bottom: 18px;
+}
+.host-panel-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--host-color); margin-bottom: 14px;
+}
+.host-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.upload-zone {
+  border: 2px dashed #333; border-radius: 10px; padding: 18px;
+  text-align: center; cursor: pointer; position: relative;
+  transition: border-color 0.2s, background 0.2s; margin-top: 14px;
+}
+.upload-zone:hover, .upload-zone.over {
+  border-color: var(--host-color); background: rgba(167,139,250,.05);
+}
+.upload-zone p      { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.upload-zone strong { color: var(--text); font-size: 14px; }
+.upload-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.upload-preview { margin-top: 10px; }
+.upload-preview img { max-height: 110px; border-radius: 8px; border: 1px solid #333; }
+.upload-status { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+/* Scoreboard */
+.scoreboard {
+  background: var(--surface); border: 1px solid #252530;
+  border-radius: var(--radius); padding: 20px; margin-top: 10px;
+}
+.scoreboard h3 {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.2rem;
+  letter-spacing: 2px; color: var(--accent); margin-bottom: 12px;
+}
+.score-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 0; border-bottom: 1px solid #1c1c24; font-size: 14px;
+}
+.score-row:last-child { border: none; }
+.score-name { font-weight: 500; }
+.score-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.score-pts  { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--accent2); }
+.score-bump { font-size: 11px; color: var(--correct); margin-left: 4px; }
+
+.divider { height: 1px; background: #1c1c24; margin: 18px 0; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Firebase banner -->
+<div id="fbBanner" class="connecting">
+  <span class="fb-dot"></span>
+  <span id="fbMsg">Connecting to Firebase…</span>
+</div>
+
+<header>
+  <h1>Alie's <em>Blankseption</em> 💕</h1>
+  <span class="room-badge hidden" id="headerRoom"></span>
+  <span class="role-badge hidden" id="headerRole"></span>
+</header>
+
+<main>
+
+  <!-- ① LANDING -->
+  <div id="landingScreen">
+    <div class="landing-hero">
+      <h2>Alie's <em>Blankseption</em> 💕</h2>
+
+    </div>
+    <div class="role-cards">
+      <div class="role-card host-card" onclick="goHostSetup()">
+        <div class="icon">👑</div>
+        <h3>Host</h3>
+        <p>Run the show — you already know the answers. Control rounds & reveal when ready</p>
+      </div>
+      <div class="role-card player-card" onclick="goPlayerJoin()">
+        <div class="icon">🎮</div>
+        <h3>Player</h3>
+        <p>Scan the QR or enter a code to jump in and guess the blanks</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② HOST SETUP -->
+  <div id="hostSetupScreen">
+    <div class="back-link" onclick="goLanding()">← Back</div>
+    <div class="setup-wrap">
+      <div class="card">
+        <h2 style="color:var(--host-color)">👑 Host Setup</h2>
+        <p>Choose a fun room code and your name. You'll get a QR code to share with players.</p>
+        <input type="text" id="hostNameInput" placeholder="Your name (shown as host)" maxlength="20">
+        <input type="text" id="hostRoomInput" placeholder="Room code — e.g. GOOBER" maxlength="12"
+               oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+        <button class="btn btn-purple" onclick="createRoom()">Create Room & Get QR Code →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ PLAYER JOIN -->
+  <div id="playerJoinScreen">
+    <div class="back-link" onclick="goLanding()">← Back</div>
+    <div class="setup-wrap">
+      <div class="card">
+        <h2 style="color:var(--accent)">🎮 Join a Game</h2>
+        <p>Enter the room code from the host's screen — or scan their QR and it'll prefill!</p>
+        <input type="text" id="playerNameInput" placeholder="Your display name" maxlength="20">
+        <input type="text" id="playerRoomInput" placeholder="Room code" maxlength="12"
+               oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+        <button class="btn btn-accent" onclick="joinAsPlayer()">Join Game →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ HOST LOBBY -->
+  <div id="hostLobbyScreen">
+    <div class="card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px">
+        <div>
+          <h2 style="color:var(--host-color)">👑 Waiting Room</h2>
+          <p style="margin-top:5px;max-width:360px">Share the QR code or room code. Start whenever everyone's in.</p>
+        </div>
+        <button class="btn btn-yellow btn-sm" onclick="startGame()">▶ Start Game</button>
+      </div>
+
+      <div class="lobby-grid">
+        <div>
+          <div class="section-label">Players joined</div>
+          <div class="chips" id="hostLobbyChips"></div>
+          <p class="no-players-hint hidden" id="noPlayersHint" style="margin-top:10px">
+            No players yet — share the QR code 👉
+          </p>
+        </div>
+        <div>
+          <div class="qr-wrap">
+            <div class="qr-label">Scan to join</div>
+            <div id="qrCode"></div>
+            <div class="qr-room" id="qrRoom"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ PLAYER LOBBY -->
+  <div id="playerLobbyScreen">
+    <div class="card" style="text-align:center;align-items:center">
+      <div class="player-wait">
+        <div class="big-icon">⏳</div>
+        <h3>Waiting for host…</h3>
+        <p>The host will kick things off shortly. Get your guessing fingers ready!</p>
+      </div>
+      <div style="font-size:12px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Room</div>
+      <div class="room-code-display" id="playerRoomDisplay"></div>
+      <div class="section-label" style="margin-bottom:10px">Players in lobby</div>
+      <div class="chips" id="playerLobbyChips" style="justify-content:center"></div>
+    </div>
+  </div>
+
+  <!-- ⑥ GAME SCREEN -->
+  <div id="gameScreen">
+
+    <!-- Host controls panel -->
+    <div class="host-panel hidden" id="hostPanel">
+      <div class="host-panel-label">👑 Host Controls</div>
+      <div class="host-btns">
+        <button class="btn btn-accent btn-sm" id="revealBtn" onclick="reveal()">🎉 Reveal Answer</button>
+        <button class="btn btn-ghost btn-sm hidden" id="nextBtn" onclick="nextRound()">Next Round →</button>
+      </div>
+      <!-- Image upload -->
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" accept="image/*" id="fileInput" onchange="handleFileSelect(event)">
+        <strong>📸 Drag &amp; drop an image for this question</strong>
+        <p>Saves permanently — shows every time this question plays</p>
+      </div>
+      <div class="upload-preview" id="uploadPreview"></div>
+      <div class="upload-status" id="uploadStatus"></div>
+    </div>
+
+    <div class="round-bar">
+      <span class="round-label" id="roundLabel">Round 1</span>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-img-wrap hidden" id="qImgWrap"><img id="qImg" src="" alt=""></div>
+      <div class="q-text" id="qText"></div>
+    </div>
+
+    <div class="options-grid" id="optionsGrid"></div>
+    <div class="status-bar" id="statusBar"></div>
+
+    <div class="scoreboard">
+      <h3>Scoreboard</h3>
+      <div id="scoresList"></div>
+    </div>
+  </div>
+
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getDatabase, ref, set, get, onValue, update
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+import {
+  getStorage, ref as sRef, uploadBytes, getDownloadURL
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js";
+
+// ── Firebase ──────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyBW1JbGbL1hBTLPhRwjTv_T6BBGsO2Lzw0",
+  authDomain: "blankseption.firebaseapp.com",
+  databaseURL: "https://blankseption-default-rtdb.firebaseio.com",
+  projectId: "blankseption",
+  storageBucket: "blankseption.firebasestorage.app",
+  messagingSenderId: "749940108441",
+  appId: "1:749940108441:web:4413c3879dd43e0e231c08"
+};
+const app     = initializeApp(firebaseConfig);
+const db      = getDatabase(app);
+const storage = getStorage(app);
+
+// ── Connection banner ─────────────────────────────────────────────────────────
+const fbBanner = document.getElementById("fbBanner");
+const fbMsg    = document.getElementById("fbMsg");
+let bannerTimer = null;
+
+function setBanner(state, msg) {
+  fbBanner.className = state;
+  fbMsg.textContent  = msg;
+  clearTimeout(bannerTimer);
+  if (state === "ok" || state === "err") {
+    bannerTimer = setTimeout(() => fbBanner.classList.add("hide"), 3000);
+  }
+}
+
+onValue(ref(db, ".info/connected"), snap => {
+  if (snap.val() === true) {
+    setBanner("ok", "✓ Connected to Firebase");
+  } else {
+    fbBanner.classList.remove("hide");
+    setBanner("err", "✗ Firebase offline — check your connection");
+  }
+});
+
+// ── Questions ─────────────────────────────────────────────────────────────────
+const RAW = [
+  { text: "Can you maybe start ___ for me? I'm not sure how to make it so if it's too hard you don't have to", correct: "my gnocchi", wrong: ["my minecraft world","my vision board","my sourdough starter"] },
+  { text: "I wrote a little ___ fanfic but not much", correct: "Abbot", wrong: ["Sherlock","Harry Styles","SpongeBob"] },
+  { text: "I want those ___ 😩", correct: "mozzarella squares", wrong: ["croutons","hash browns","cheese curds"] },
+  { text: "Go on YouTube and look up ___….", correct: "heated wizardry", wrong: ["that frog video","cottagecore ASMR","spaghetti bridge fails"] },
+  { text: "I am going to explode ___", correct: "poop style", wrong: ["like a volcano","from excitement","on sight"] },
+  { text: "My boss just ___ 💀", correct: "heel clicked", wrong: ["called me bestie","moonwalked out","sent a voice memo"] },
+  { text: "Any idea where my ___ is…", correct: "swim suit", wrong: ["emotional support water bottle","good pen","left sock"] },
+  { text: "You at ___ 🥺🥺", correct: "Burger King", wrong: ["the farmers market","Costco","my house?"] },
+  { text: "Before you say anything yes I did ___ 😔", correct: "order Dairy Queen", wrong: ["eat the whole thing","watch it again","buy another one"] },
+  { text: "Any yummy food to make for dinner? ___ Mayhaps?? 🤔", correct: "Tacos", wrong: ["Risotto","Rotisserie chicken","Toast"] },
+  { text: "What would be a good ___?", correct: "cult secret", wrong: ["podcast name","villain origin story","shower thought"] },
+  { text: "Is this from ___ or is this your idea?", correct: "kindergarten 2", wrong: ["a fever dream","your TikTok FYP","that one Vine"] },
+  { text: "I love ___ 🥺🥺🥺", correct: "euthanasia", wrong: ["serotonin","Wikipedia rabbit holes","rainy days"] },
+  { text: "I hate ___ 😡 /nm", correct: "spaghetti os", wrong: ["Mondays","this WiFi","the concept of pants"] },
+  { text: "You just have to have a ___", correct: "terminal illness, be a boy, and pick a tarot card", wrong: ["dream and a vision","Spotify premium","personality, I guess"] },
+  { text: "Gonna be fr I got so upset and stressed and sleepless I started writing ___", correct: "house fanfiction", wrong: ["manifestation lists","a diss track","my will and testament"] },
+  { text: "Would you like a ___ like campaign?", correct: "hazbin hotel", wrong: ["DuoLingo","hot girl summer","awareness"] },
+  { text: "I just personally feel like it doesn't make any sense like how people are like \"___\"", correct: "but Sherlock can't be gay he's straight and in love with Irene Adler", wrong: ["pineapple doesn't belong on pizza","anime is just cartoons","it's just a phase"] },
+  { text: "When you're free do you wanna see my ___?", correct: "mc house", wrong: ["vision board","frog collection","Percy Jackson shrine"] },
+  { text: "Do you wanna make our ___ kiss!!!", correct: "spidersonas", wrong: ["sonas","OC rivals","comfort characters"] },
+  { text: "I have ___ help", correct: "brainrot", wrong: ["too many tabs open","an agenda, and I need","situationship"] },
+  { text: "Oh my god this ___", correct: "gay ass fucker", wrong: ["little meow meow","slay icon","disaster bisexual"] },
+  { text: "Should they ___ in the woods 😏😏", correct: "snuggle for warmth", wrong: ["commit crimes","do a little roleplay","start a forest rave"] },
+  { text: "Would you wanna maybe make some ___ with me 👉👈", correct: "homoerotic 2000s asshole boys", wrong: ["comfort AUs","enemies-to-lovers pirates","chaotic found family"] },
+  { text: "You're being so ___ right now 😝", correct: "goofy", wrong: ["valid","chaotic neutral","ominous"] },
+  { text: "I literally just squealed over some ___….", correct: "kpop boys", wrong: ["fictional dads","Victorian portraits","pigeons"] },
+  { text: "___ is so good but also NOOOOO not the Emo boy he's so hot", correct: "Jennifer's body", wrong: ["Twilight","Coraline","Hereditary"] },
+  { text: "I am feeling ✨___✨", correct: "unwell", wrong: ["delulu","feral","possessed"] },
+  { text: "Question: ___", correct: "Are you opposed to posters?", wrong: ["Are you normal about this?","Would you commit arson for a plushie?","Do you have lore?"] },
+  { text: "Sorry for accidentally making ___ hot /j", correct: "mumbo", wrong: ["that background character","the villain again","my comfort antagonist"] },
+  { text: "May I request ___ of this caliber in our multiverse", correct: "tragic gays", wrong: ["chaotic besties","unhinged sidekicks","morally grey girlies"] },
+  { text: "Will you be the ___ 👉👈", correct: "kissy missy to my huggy wuggy", wrong: ["Gromit to my Wallace","Luigi to my Mario","villain to my protagonist"] },
+  { text: "Me shitting my ___", correct: "brains out after McDonald's", wrong: ["feelings into the void","pants about this ship","pants at that jumpscare"] },
+  { text: "That. That is just a ___", correct: "stoned flamingo", wrong: ["depressed crane","vibing iguana","sleep-deprived raccoon"] },
+  { text: "Ask my homie ___", correct: "Shawn", wrong: ["Google","the void","my sleep paralysis demon"] },
+  { text: "You think ___ when I'm this powerful", correct: "feet will stop me now", wrong: ["capitalism can hold me","sleep matters","pants are necessary"] },
+  { text: "Does it have ___ 😏", correct: "to be a man", wrong: ["to make sense","feelings","a plot"] },
+  { text: "You're ___. Do you not recall", correct: "hitting the gwiddy", wrong: ["being feral","doing the thing","unhinged right now"] },
+  { text: "I've always liked birch wood very much but I like those ___ (?)", correct: "toad lights", wrong: ["mossy cobblestones","glowstone vibes","little amethysts"] },
+  { text: "Not a ___!!!! Just bad!!!", correct: "white person moment", wrong: ["vibe check fail","main character thing","trauma response"] },
+  { text: "Aauh hamburger sandwich-eu and ___", correct: "diet COCA COLA", wrong: ["fries I stole","my emotional support drink","a little treat"] },
+  { text: "I just watched ___ so I'm just a bit weepy", correct: "heartstopper", wrong: ["Coraline","the Bee Movie","a TikTok compilation"] },
+  { text: "There are so many ___ !!!!!", correct: "fruity indie songs", wrong: ["comfort shows","chaotic fic recs","little guys"] },
+  { text: "I'm gonna cry I'm so excited for ___ I'm gonna barf and shit my pants", correct: "heartstopper", wrong: ["Glastonbury","the gay agenda","my new hyperfixation"] },
+  { text: "Baby Am I supposed ___", correct: "to hear something", wrong: ["to be normal about this","to be this attached","to feel this way"] },
+  { text: "You smell like ___", correct: "almonds and coconut", wrong: ["a library on a rainy day","a fever dream","trouble"] },
+];
+
+// Deterministic shuffle (same option order for all players given same question index)
+function buildQuestions() {
+  return RAW.map((q, idx) => {
+    const seed = idx * 1337 + 99;
+    const r = n => { const x = Math.sin(seed + n) * 99999; return x - Math.floor(x); };
+    const ci = Math.floor(r(0) * 4);
+    const wrong = [...q.wrong].sort((a,b) => r(a.charCodeAt(0)) - r(b.charCodeAt(0))).slice(0,3);
+    const options = [...wrong];
+    options.splice(ci, 0, q.correct);
+    return { id: idx, text: q.text, options, correct: ci };
+  });
+}
+const QUESTIONS = buildQuestions();
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let playerId  = localStorage.getItem("tap_pid") || Math.random().toString(36).slice(2);
+localStorage.setItem("tap_pid", playerId);
+let playerName  = "";
+let roomCode    = "";
+let isHost      = false;
+let myAnswer    = null;
+let hasRevealed = false;
+let currentRi   = 0;
+let gameWatching = false;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const S = id => document.getElementById(id);
+const ALL_SCREENS = [
+  "landingScreen","hostSetupScreen","playerJoinScreen",
+  "hostLobbyScreen","playerLobbyScreen","gameScreen"
+];
+// Map each screen to its correct display type
+const SCREEN_DISPLAY = {
+  landingScreen:    "flex",
+  hostSetupScreen:  "block",
+  playerJoinScreen: "block",
+  hostLobbyScreen:  "block",
+  playerLobbyScreen:"block",
+  gameScreen:       "block",
+};
+function showScreen(id) {
+  ALL_SCREENS.forEach(s => {
+    S(s).style.display = s === id ? SCREEN_DISPLAY[s] : "none";
+  });
+}
+
+// Check for ?room= param (from QR scan)
+const urlRoom = new URLSearchParams(location.search).get("room");
+if (urlRoom) {
+  S("playerRoomInput").value = urlRoom.toUpperCase();
+  showScreen("playerJoinScreen");
+} else {
+  showScreen("landingScreen");
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+window.goLanding    = () => showScreen("landingScreen");
+window.goHostSetup  = () => showScreen("hostSetupScreen");
+window.goPlayerJoin = () => showScreen("playerJoinScreen");
+
+// ── Create room (host) ────────────────────────────────────────────────────────
+window.createRoom = async function() {
+  playerName = S("hostNameInput").value.trim();
+  roomCode   = S("hostRoomInput").value.trim().toUpperCase();
+  if (!playerName) return alert("Enter your name!");
+  if (!roomCode)   return alert("Enter a room code!");
+  isHost = true;
+
+  await set(ref(db, "rooms/" + roomCode), {
+    phase: "lobby", roundIndex: 0, revealed: false,
+    hostId: playerId, answers: {}
+  });
+  await set(ref(db, `rooms/${roomCode}/players/${playerId}`), {
+    name: playerName + " 👑", score: 0
+  });
+
+  setHeader(roomCode, "host");
+  showScreen("hostLobbyScreen");
+  S("qrRoom").textContent = roomCode;
+
+  // Build QR pointing to this page with ?room=CODE
+  S("qrCode").innerHTML = "";
+  const joinUrl = `${location.origin}${location.pathname}?room=${roomCode}`;
+  new QRCode(S("qrCode"), {
+    text: joinUrl, width: 148, height: 148,
+    colorDark: "#0d0d0f", colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  listenLobby();
+};
+
+// ── Join room (player) ────────────────────────────────────────────────────────
+window.joinAsPlayer = async function() {
+  playerName = S("playerNameInput").value.trim();
+  roomCode   = S("playerRoomInput").value.trim().toUpperCase();
+  if (!playerName) return alert("Enter your name!");
+  if (!roomCode)   return alert("Enter the room code!");
+
+  const snap = await get(ref(db, "rooms/" + roomCode));
+  if (!snap.exists())              return alert("Room not found! Double-check the code.");
+  if (snap.val().phase === "game") return alert("Game already in progress — too late to join this round!");
+
+  isHost = false;
+  await set(ref(db, `rooms/${roomCode}/players/${playerId}`), { name: playerName, score: 0 });
+
+  setHeader(roomCode, "player");
+  S("playerRoomDisplay").textContent = roomCode;
+  showScreen("playerLobbyScreen");
+  listenLobby();
+};
+
+// ── Lobby listener (both roles) ───────────────────────────────────────────────
+function listenLobby() {
+  onValue(ref(db, "rooms/" + roomCode), snap => {
+    if (!snap.exists()) return;
+    const data = snap.val();
+    const players = Object.entries(data.players || {});
+    const nonHost = players.filter(([id]) => id !== data.hostId);
+
+    // Chips for host lobby (exclude host chip from count hint)
+    S("hostLobbyChips").innerHTML = players.map(([id, p]) =>
+      `<div class="chip${id === playerId ? " you" : ""}">${p.name}</div>`
+    ).join("");
+    S("noPlayersHint").classList.toggle("hidden", nonHost.length > 0);
+
+    // Chips for player lobby
+    S("playerLobbyChips").innerHTML = players.map(([id, p]) =>
+      `<div class="chip${id === playerId ? " player-you" : ""}">${p.name}</div>`
+    ).join("");
+
+    if (data.phase === "game" && !gameWatching) {
+      gameWatching = true;
+      myAnswer = null;
+      showScreen("gameScreen");
+      listenGame();
+    }
+  });
+}
+
+// ── Start game ────────────────────────────────────────────────────────────────
+window.startGame = async function() {
+  await update(ref(db, "rooms/" + roomCode), {
+    phase: "game", roundIndex: 0, revealed: false, answers: {}
+  });
+};
+
+// ── Game listener ─────────────────────────────────────────────────────────────
+function listenGame() {
+  onValue(ref(db, "rooms/" + roomCode), snap => {
+    if (!snap.exists()) return;
+    const data = snap.val();
+    if (data.phase !== "game") return;
+
+    const ri = data.roundIndex ?? 0;
+    const q  = QUESTIONS[ri];
+    currentRi   = ri;
+    hasRevealed = !!data.revealed;
+
+    // Progress
+    S("roundLabel").textContent = `Round ${ri + 1} / ${QUESTIONS.length}`;
+    S("progressFill").style.width = `${((ri + 1) / QUESTIONS.length) * 100}%`;
+
+    // Image
+    if (data.questionImages?.[ri]) {
+      S("qImg").src = data.questionImages[ri];
+      S("qImgWrap").classList.remove("hidden");
+    } else {
+      S("qImgWrap").classList.add("hidden");
+    }
+
+    // Question text
+    const filledText = q.text.replace("___",
+      data.revealed
+        ? `<span class="blank revealed">${q.options[q.correct]}</span>`
+        : `<span class="blank">_____</span>`
+    );
+    S("qText").innerHTML = `<span style="font-size:0.7em;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);opacity:0.8;display:block;margin-bottom:8px">Ry said:</span>${filledText}`;
+
+    // Options
+    S("optionsGrid").innerHTML = "";
+    q.options.forEach((opt, i) => {
+      const b = document.createElement("button");
+      b.className = "opt";
+      b.textContent = opt;
+      if (isHost) {
+        // Host always sees options locked — correct answer highlighted after reveal,
+        // subtly marked before reveal so they know but players don't
+        b.classList.add("locked");
+        if (data.revealed) {
+          if (i === q.correct) b.classList.add("correct");
+        } else {
+          // Pre-reveal: correct answer gets a faint gold ring so host knows
+          if (i === q.correct) b.style.cssText = "border-color:#ffb3d155;opacity:0.7;";
+        }
+      } else if (!data.revealed) {
+        if (myAnswer === i) b.classList.add("selected");
+        b.onclick = () => submitAnswer(i);
+      } else {
+        b.classList.add("locked");
+        if (i === q.correct) b.classList.add("correct");
+        else if (myAnswer === i) b.classList.add("wrong");
+      }
+      S("optionsGrid").appendChild(b);
+    });
+
+    // Status
+    const total    = Object.keys(data.players || {}).length;
+    const answered = Object.keys(data.answers || {}).length;
+    if (isHost) {
+      S("statusBar").innerHTML = !data.revealed
+        ? `<span class="pulse-dot"></span>${answered} of ${total} players answered`
+        : ``;
+    } else {
+      S("statusBar").innerHTML = !data.revealed
+        ? `<span class="pulse-dot"></span>${answered} of ${total} answered`
+        : "";
+    }
+
+    // Host panel
+    if (isHost) {
+      S("hostPanel").classList.remove("hidden");
+      S("revealBtn").style.display = data.revealed ? "none" : "";
+      S("nextBtn").classList.toggle("hidden", !data.revealed);
+      if (data.questionImages?.[ri]) {
+        S("uploadPreview").innerHTML = `<img src="${data.questionImages[ri]}">`;
+        S("uploadStatus").textContent = "✅ Image saved for this question.";
+      } else {
+        S("uploadPreview").innerHTML = "";
+        S("uploadStatus").textContent = "";
+      }
+    } else {
+      S("hostPanel").classList.add("hidden");
+    }
+
+    renderScores(data.players || {}, data.answers || {}, q, !!data.revealed);
+  });
+}
+
+// ── Submit ────────────────────────────────────────────────────────────────────
+async function submitAnswer(choice) {
+  if (hasRevealed) return;
+  myAnswer = choice;
+  await set(ref(db, `rooms/${roomCode}/answers/${playerId}`), choice);
+}
+
+// ── Reveal ────────────────────────────────────────────────────────────────────
+window.reveal = async function() {
+  const roomRef = ref(db, "rooms/" + roomCode);
+  const snap    = await get(roomRef);
+  const data    = snap.val();
+  const q       = QUESTIONS[data.roundIndex ?? 0];
+  const updates = { revealed: true };
+  for (const [id, ans] of Object.entries(data.answers || {})) {
+    if (ans === q.correct) {
+      updates[`players/${id}/score`] = (data.players?.[id]?.score ?? 0) + 1;
+    }
+  }
+  await update(roomRef, updates);
+};
+
+// ── Next round ────────────────────────────────────────────────────────────────
+window.nextRound = async function() {
+  const roomRef = ref(db, "rooms/" + roomCode);
+  const snap    = await get(roomRef);
+  let i = (snap.val().roundIndex ?? 0) + 1;
+  if (i >= QUESTIONS.length) i = 0;
+  myAnswer = null;
+  await update(roomRef, { roundIndex: i, revealed: false, answers: {} });
+};
+
+// ── Scores ────────────────────────────────────────────────────────────────────
+function renderScores(players, answers, q, revealed) {
+  const sorted = Object.entries(players).sort((a,b) => b[1].score - a[1].score);
+  S("scoresList").innerHTML = sorted.map(([id, p]) => {
+    const ans = answers[id];
+    const hit = revealed && ans === q.correct;
+    const sub = revealed && ans !== undefined
+      ? `<div class="score-sub">${ans === q.correct ? "✅" : "❌"} ${q.options[ans] ?? "—"}</div>`
+      : ans !== undefined
+        ? `<div class="score-sub" style="color:#4ade80">✔ answered</div>`
+        : "";
+    return `<div class="score-row">
+      <div>
+        <div class="score-name">${p.name}${id === playerId
+          ? ` <span style="color:var(--muted);font-size:11px">(you)</span>` : ""}</div>
+        ${sub}
+      </div>
+      <div class="score-pts">${p.score}${hit ? '<span class="score-bump">+1</span>' : ""}</div>
+    </div>`;
+  }).join("");
+}
+
+// ── Image upload ──────────────────────────────────────────────────────────────
+const uploadZone = S("uploadZone");
+uploadZone.addEventListener("dragover",  e => { e.preventDefault(); uploadZone.classList.add("over"); });
+uploadZone.addEventListener("dragleave", ()  => uploadZone.classList.remove("over"));
+uploadZone.addEventListener("drop", e => {
+  e.preventDefault(); uploadZone.classList.remove("over");
+  const f = e.dataTransfer.files[0];
+  if (f?.type.startsWith("image/")) uploadImage(f);
+});
+window.handleFileSelect = e => { const f = e.target.files[0]; if (f) uploadImage(f); };
+
+async function uploadImage(file) {
+  S("uploadStatus").textContent = "⏳ Uploading…";
+  S("uploadPreview").innerHTML  = "";
+  try {
+    const fileRef = sRef(storage, `question-images/q${currentRi}`);
+    await uploadBytes(fileRef, file);
+    const url = await getDownloadURL(fileRef);
+    await update(ref(db, `rooms/${roomCode}`), { [`questionImages/${currentRi}`]: url });
+    S("uploadPreview").innerHTML = `<img src="${url}">`;
+    S("uploadStatus").textContent = "✅ Saved permanently for this question!";
+  } catch(err) {
+    console.error(err);
+    S("uploadStatus").textContent = "❌ Upload failed — check Firebase Storage rules.";
+  }
+}
+
+// ── Header ────────────────────────────────────────────────────────────────────
+function setHeader(room, role) {
+  S("headerRoom").textContent = room;
+  S("headerRoom").classList.remove("hidden");
+  S("headerRole").textContent = role === "host" ? "👑 Host" : "🎮 Player";
+  S("headerRole").className = `role-badge ${role}`;
+  S("headerRole").classList.remove("hidden");
+}
+</script>
+</body>
+</html>
